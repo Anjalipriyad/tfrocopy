@@ -1,73 +1,120 @@
 # Topological Financial Risk Optimizer (TFRO)
-> **A Non-Euclidean Early Warning System for Structural Market Phase Transitions**
 
-TFRO is a full-stack analytical engine designed to detect catastrophic market drawdowns (crashes) before they manifest in price movements. Unlike traditional statistical models that rely on linear indicators, TFRO identifies **structural shattering** in the market's high-dimensional geometry using advanced **Topological Data Analysis (TDA)**.
+## Overview
 
----
+The **Topological Financial Risk Optimizer (TFRO)** is a full‑stack analytical engine designed to detect catastrophic market drawdowns before they manifest in price movements. Leveraging advanced **Topological Data Analysis (TDA)**, TFRO identifies structural instabilities in high‑dimensional market data, providing early warnings for potential crashes.
 
-## 1. The Core Innovation
+## Features
 
-Traditional quantitative models often fail to predict "Black Swan" events because they treat markets as Gaussian distributions. TFRO treats the market as a **dynamic manifold**.
+- **Topological Signature Extraction** – Maps market momentum into high‑dimensional point clouds to detect instability patterns.
+- **Manifold Dynamics Tracking** – Monitors the rate of change in topological features to filter noise and reduce false positives.
+- **Adaptive Regime Mapping** – Dynamically adjusts to evolving market regimes for consistent sensitivity.
+- **Ensemble Soft‑Voting Engine** – Combines multiple models for robust risk scoring.
+- **Probabilistic Confidence Calibration** – Provides clear confidence percentages for each prediction.
+- **Retail Advisory Layer** – Translates complex signals into actionable advice (stop‑loss, allocation limits).
+- **Glassmorphism Dashboard** – Interactive React UI with 3‑D risk visualizations.
 
-### Key Methodologies:
-1. **Topological Signature Extraction:** The system maps market momentum into high-dimensional point clouds to identify topological signatures of instability. By analyzing the "shape" of data persistence, we can detect when the underlying structural integrity of an asset is fracturing.
-2. **Manifold Dynamics (Proprietary Signals):** Static topological snapshots can be noisy. TFRO implements a proprietary velocity-tracking algorithm that monitors the *rate of change* in topological features to suppress false positives and isolate genuine pre-crash signals.
-3. **Adaptive Regime Mapping:** The engine utilizes a localized temporal training architecture that dynamically adapts to evolving market regimes, ensuring that the model's sensitivity is always tuned to current volatility profiles.
+## Tech Stack
 
----
+- **Backend:** Python 3.10+, FastAPI, scikit‑tda, NumPy, pandas
+- **Frontend:** React, Vite, D3.js, Three.js, CSS (glassmorphism styling)
+- **Deployment:** Docker, Nginx
+- **Testing:** PyTest, Jest (frontend)
 
-## 2. Advanced Engine Architecture
+## Getting Started
 
-The TFRO backend combines high-dimensional geometry with a sophisticated machine learning ensemble to deliver institutional-grade risk assessments.
+### Prerequisites
 
-*   **Multi-Model Soft-Voting Ensemble:** A proprietary weighted ensemble architecture that balances aggressive non-linear signal detection with conservative regularization guardrails.
-*   **Probabilistic Confidence Calibration:** To ensure actionable output, the system applies mathematical sharpening to the ensemble's probability matrix, providing a clear "Model Confidence" percentage for every prediction.
-*   **Automated Risk Management:** The engine translates raw quantitative data into beginner-friendly "Retail Advice," including dynamic Stop-Loss calculations and portfolio allocation limits based on asset-specific volatility.
+- Python 3.10+ and `pip`
+- Node.js (v18+) and `npm`
+- Docker (optional, for containerized deployment)
 
----
+### Installation
 
-## 3. Results & Validation
-
-The system has been rigorously backtested across multiple asset classes (Equities, Crypto, Indices) to ensure robust performance under various market conditions.
-
-*   **Dynamic Backtest Accuracy:** ~75-80% (varies by asset class and regime).
-*   **Signal Precision:** Optimized to minimize "false alarms" while maintaining high sensitivity to genuine structural shattering.
-*   **Real-World Application:** Designed for live inference with rolling training windows to prevent model drift.
-
----
-
-## 4. Setup & Usage
-
-### 1. Installation
-Ensure Python 3.10+ is installed.
 ```bash
+# Clone the repository
+git clone https://github.com/Anjalipriyad/tfrocopy.git
+cd tfrocopy
+
+# Backend setup
+python -m venv venv
+source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-### 2. Live Backend Engine
-Launch the FastAPI server (default port 8000):
-```bash
-python3 main.py
-```
-
-### 3. Client Dashboard
-Launch the premium React-based analytical interface:
-```bash
+# Frontend setup
 cd frontend
 npm install
-npm run dev
 ```
 
-### 4. CLI Analysis Tool
-Run production-grade inference directly from your terminal:
+### Development
+
+#### Backend
+
 ```bash
-python3 main.py TICKER  # Example: python3 main.py NVDA
+# Run FastAPI server (default http://localhost:8000)
+uvicorn main:app --reload
 ```
+
+#### Frontend
+
+```bash
+npm run dev   # Starts Vite dev server at http://localhost:5173
+```
+
+### Building for Production
+
+```bash
+# Backend Docker image
+docker build -t tfro-backend .
+
+# Frontend static build
+cd frontend
+npm run build   # Outputs to ./dist
+```
+
+## Usage
+
+1. **Start the backend** and ensure the API is reachable.
+2. **Launch the frontend** to access the dashboard.
+3. **Upload or fetch market data** via the UI.
+4. **Run analysis** – the loading overlay indicates processing.
+5. **Explore results** – interact with 3‑D risk surfaces and view confidence scores.
+
+## Project Structure
+
+```
+.
+├─ backend/               # FastAPI server and analysis engine
+│   ├─ main.py
+│   ├─ requirements.txt
+│   └─ ...
+├─ frontend/              # React dashboard
+│   ├─ src/
+│   │   ├─ components/
+│   │   │   ├─ LoadingOverlay.jsx
+│   │   │   └─ PortfolioBuilder.jsx
+│   │   └─ App.jsx
+│   ├─ index.css
+│   ├─ vite.config.ts
+│   └─ package.json
+├─ Dockerfile
+├─ README.md               # (this file)
+└─ LICENSE
+```
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-feature`).
+3. Ensure code passes linting (`npm run lint` / `flake8`).
+4. Open a pull request with a clear description of changes.
+
+## License
+
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 5. System Components
-*   **High-Dimensional Geometry Engine:** Extracts non-Euclidean features from market time-series.
-*   **Ensemble Inference Module:** Processes signals through a multi-stage forecasting pipeline.
-*   **Glassmorphism Dashboard:** Provides a state-of-the-art interactive UI for risk visualization.
-*   **Retail Advisory Layer:** Translates complex math into actionable safety nets for individual investors.
+*Developed by the TFRO team.*
