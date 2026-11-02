@@ -16,8 +16,11 @@ export default function Navbar({ page, setPage, onLogoClick, mobileSidebarOpen, 
   }, []);
 
   const tabs = [
-    { id: 'home', label: 'Dashboard', icon: '◈' },
+    { id: 'home', label: 'Single Stock', icon: '◈' },
+    { id: 'screener', label: 'Market Screener', icon: '📊' },
+    { id: 'portfolio', label: 'Portfolio', icon: '💼' },
   ];
+
 
   return (
     <header

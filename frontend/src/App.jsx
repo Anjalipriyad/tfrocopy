@@ -10,6 +10,11 @@ import FeatureRadar from './components/FeatureRadar';
 import { WatchlistPanel, HistoryPanel } from './components/Watchlist';
 import CursorGlow from './components/CursorGlow';
 import ScrollReveal from './components/ScrollReveal';
+import MarketRegimeBanner from './components/MarketRegimeBanner';
+import ScreeningTable from './components/ScreeningTable';
+import SectorHeatmap from './components/SectorHeatmap';
+import StressIndexGauge from './components/StressIndexGauge';
+import PortfolioBuilder from './components/PortfolioBuilder';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://topological-financial-risk-optimizer.onrender.com' : 'http://localhost:8000');
@@ -53,19 +58,43 @@ function riskColor(level) {
 }
 
 export default function App() {
-  const [page, setPage] = useState('home');
-  const [pageKey, setPageKey] = useState(0);
+  const [page, setPage] = useState(() => loadFromStorage('tfro_page', 'home'));
+  const [pageKey, setPageKey] = useState(() => loadFromStorage('tfro_pageKey', 0));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [result, setResult] = useState(null);
-  const [chartData, setChartData] = useState([]);
+  const [result, setResult] = useState(() => loadFromStorage('tfro_result', null));
+  const [chartData, setChartData] = useState(() => loadFromStorage('tfro_chartData', []));
   const [isRealData, setIsRealData] = useState(false);
   const [watchlist, setWatchlist] = useState(() => loadFromStorage('tfro_watchlist', []));
   const [predHistory, setPredHistory] = useState(() => loadFromStorage('tfro_history', []));
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Persist result, chart data, and prediction history to localStorage
+  useEffect(() => {
+    if (result) {
+      localStorage.setItem('tfro_result', JSON.stringify(result));
+    }
+  }, [result]);
+
+  useEffect(() => {
+    localStorage.setItem('tfro_chartData', JSON.stringify(chartData));
+  }, [chartData]);
+
+  useEffect(() => {
+    localStorage.setItem('tfro_history', JSON.stringify(predHistory));
+  }, [predHistory]);
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
 
+  // Screener state
+  const [screenerUniverse, setScreenerUniverse] = useState('NIFTY50');
+  const [screenData, setScreenData] = useState(() => loadFromStorage('tfro_screenData', null));
+  // Persist screener data
+  useEffect(() => {
+    if (screenData) {
+      localStorage.setItem('tfro_screenData', JSON.stringify(screenData));
+    }
+  }, [screenData]);
   // Scroll progress
   useEffect(() => {
     const onScroll = () => {
@@ -86,12 +115,11 @@ export default function App() {
 
   const resetToHome = () => {
     setPage('home');
-    setResult(null);
-    setError(null);
-    setChartData([]);
-    setIsRealData(false);
+    // Preserve prediction data across navigation
+    // (Result, chartData, and isRealData remain unchanged)
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
 
   const handleSearch = async (ticker) => {
     setIsLoading(true); setError(null); setResult(null); setChartData([]); setIsRealData(false);
@@ -156,8 +184,13 @@ export default function App() {
         {/* Navbar */}
         <Navbar page={page} setPage={switchPage} onLogoClick={resetToHome} mobileSidebarOpen={toolsPanelOpen} setMobileSidebarOpen={setToolsPanelOpen} />
 
+        {/* Global Market Regime Sub-Banner */}
+        <div style={{ background: 'var(--bg-glass)', borderBottom: '1px solid var(--border-subtle)', padding: '6px 24px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <MarketRegimeBanner benchmark={screenerUniverse === 'NIFTY50' ? '^NSEI' : '^GSPC'} />
+        </div>
+
         {/* Body */}
-        <div style={{ display: 'flex', maxWidth: showSidebar ? 1400 : 'none', margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'flex', maxWidth: page === 'home' && !showSidebar ? 'none' : 1400, margin: '0 auto', width: '100%' }}>
           {/* Mobile overlay */}
           {mobileSidebarOpen && (
             <div className="mobile-overlay lg:hidden" onClick={() => setMobileSidebarOpen(false)} />
@@ -180,7 +213,11 @@ export default function App() {
               <HistoryPanel history={predHistory} onSelect={t => { handleSearch(t); setMobileSidebarOpen(false); }} />
               {/* Mobile nav */}
               <div className="sm:hidden" style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {[{ id: 'home', label: 'Dashboard' }].map(({ id, label }) => (
+                {[
+                  { id: 'home', label: 'Single Stock' },
+                  { id: 'screener', label: 'Market Screener' },
+                  { id: 'portfolio', label: 'Portfolio' },
+                ].map(({ id, label }) => (
                   <button key={id} onClick={() => { switchPage(id); setMobileSidebarOpen(false); }}
                     style={{ textAlign: 'left', padding: '10px 12px', fontSize: 12, fontWeight: page === id ? 700 : 500, color: page === id ? 'var(--text-primary)' : 'var(--text-secondary)', background: page === id ? 'var(--bg-surface)' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer' }}>{label}</button>
                 ))}
@@ -188,111 +225,8 @@ export default function App() {
             </aside>
           )}
 
-          {/* Tools Panel — slides in from right when hamburger is clicked */}
-          {toolsPanelOpen && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} onClick={() => setToolsPanelOpen(false)}>
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }} />
-              <div onClick={e => e.stopPropagation()} style={{
-                position: 'absolute', right: 0, top: 0, bottom: 0, width: 320,
-                background: 'var(--bg-base)', borderLeft: '1px solid var(--border-subtle)',
-                boxShadow: '-8px 0 30px rgba(0,0,0,0.1)', padding: 24, overflowY: 'auto',
-                animation: 'slide-in-left 0.3s var(--ease-out) both',
-                display: 'flex', flexDirection: 'column', gap: 24
-              }}>
-                {/* Close button */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="label-sm">System Console</span>
-                  <button onClick={() => setToolsPanelOpen(false)} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                    <svg width="14" height="14" fill="none" stroke="var(--text-primary)" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-
-                {/* Engine Telemetry */}
-                <div style={{ padding: '20px', background: '#1A1A2E', borderRadius: 14, color: 'var(--text-inverse)', fontFamily: 'var(--font-mono)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                    <div className="animate-glow-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--status-safe)', boxShadow: '0 0 8px var(--status-safe)' }} />
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.05em' }}>SYSTEM TELEMETRY</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 11, color: '#8A8AA0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Ensemble</span>
-                      <span style={{ color: '#E8C547' }}>[3:2:1] XGB/RF/LR</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Calibration</span>
-                      <span style={{ color: '#60A5FA' }}>T = 0.4</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Topology</span>
-                      <span style={{ color: '#E8C547' }}>Takens d=3, τ=1</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>PCA Compression</span>
-                      <span style={{ color: '#059669' }}>40 → 5 dims</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Target Window</span>
-                      <span style={{ color: '#60A5FA' }}>5-day fwd</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>ATR Multiplier</span>
-                      <span style={{ color: '#E8C547' }}>1.5×</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Data Export */}
-                <div>
-                  <span className="label-xs" style={{ display: 'block', marginBottom: 12 }}>Data Export</span>
-                  <button className="btn-glass" style={{ width: '100%', justifyContent: 'flex-start', fontSize: 12, padding: '10px 14px', opacity: result ? 1 : 0.4, pointerEvents: result ? 'auto' : 'none' }} onClick={() => {
-                    if (!result) return;
-                    const rows = [
-                      ['Field', 'Value'],
-                      ['Ticker', result.ticker],
-                      ['Current Price', `${result.current_price} (${result.currency || 'USD'})`],
-                      ['Risk Score', result.hidden_risk_score],
-                      ['Risk Level', result.risk_level],
-                      ['Backtest Accuracy (%)', result.historical_accuracy_pct],
-                      ['Model Confidence (%)', result.model_confidence_pct],
-                      ['RSI', result.features?.RSI],
-                      ['MACD', result.features?.MACD],
-                      ['BB_Width', result.features?.BB_Width],
-                      ['BB_Pivot', result.features?.BB_Pivot],
-                      ['ATR', result.features?.ATR],
-                      ['Recommendation', result.recommendation],
-                    ];
-                    const csv = rows.map(r => r.join(',')).join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${result.ticker}_risk_report.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}>
-                    <span style={{ color: 'var(--blue)' }}>↓</span> Export Risk Report (CSV)
-                  </button>
-                  {!result && <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>Search a ticker first to enable export.</p>}
-                </div>
-
-                {/* Navigation */}
-                <div>
-                  <span className="label-xs" style={{ display: 'block', marginBottom: 12 }}>Navigation</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {[{ id: 'home', label: 'Dashboard', icon: '◈' }].map(({ id, label, icon }) => (
-                      <button key={id} onClick={() => { switchPage(id); setToolsPanelOpen(false); }}
-                        style={{ textAlign: 'left', padding: '10px 14px', fontSize: 13, fontWeight: page === id ? 700 : 500, color: page === id ? 'var(--text-primary)' : 'var(--text-secondary)', background: page === id ? 'var(--gold-bg)' : 'transparent', border: page === id ? '1px solid var(--gold-border)' : '1px solid transparent', borderRadius: 10, cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center', transition: 'all 0.2s' }}>
-                        <span style={{ fontSize: 11 }}>{icon}</span> {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Main */}
-          <main key={pageKey} className="page-wrapper" style={{ flex: 1, minWidth: 0, padding: showSidebar ? '32px 24px 48px' : '0' }}>
+          <main key={pageKey} className="page-wrapper" style={{ flex: 1, minWidth: 0, padding: (page === 'home' && !showSidebar) ? '0' : '32px 24px 48px' }}>
             {page === 'home' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                 {/* Search bar (shown when results exist) */}
@@ -392,6 +326,30 @@ export default function App() {
                 )}
               </div>
             )}
+
+            {/* Market Screener View */}
+            {page === 'screener' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
+                  <StressIndexGauge universe={screenerUniverse} />
+                  {screenData && screenData.sector_summary && (
+                    <SectorHeatmap sectorSummary={screenData.sector_summary} />
+                  )}
+                </div>
+
+                <ScreeningTable
+                  onSelectTicker={(t) => handleSearch(t)}
+                  onScreenDataLoaded={(data) => setScreenData(data)}
+                  currentUniverse={screenerUniverse}
+                  setCurrentUniverse={setScreenerUniverse}
+                />
+              </div>
+            )}
+
+            {/* Portfolio View */}
+            {page === 'portfolio' && (
+              <PortfolioBuilder onSelectTicker={(t) => handleSearch(t)} />
+            )}
           </main>
         </div>
 
@@ -405,3 +363,4 @@ export default function App() {
     </div>
   );
 }
+
