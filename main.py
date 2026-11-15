@@ -305,15 +305,10 @@ def classify_risk(score: int) -> tuple[str, str]:
 @app.get("/")
 async def root(): return {"status": "online", "mode": "dynamic_online_ml"}
 
-async def run_tfro_inference(ticker: str, use_cache: bool = True) -> RiskResponse:
+def _sync_run_tfro_inference(ticker: str, use_cache: bool = True) -> RiskResponse:
     """
-    Dynamically trains an asset-specific online Machine Learning Model over
-    the past 2 years of the provided `ticker` to guarantee hyper-accurate predictions.
-
-    Results are cached for the remainder of the calendar day: since market prices
-    only change after the daily close, re-running TDA + ensemble training on the
-    same stock twice in one day yields the identical output at significant cost.
-    Pass use_cache=False to force a fresh computation (e.g. after a manual refresh).
+    Synchronous execution of TDA feature extraction and online ML ensemble training.
+    Executed via worker threads to prevent blocking the asyncio event loop during batch screening.
     """
     cache_key = ticker.upper()
     if use_cache:
@@ -327,12 +322,16 @@ async def run_tfro_inference(ticker: str, use_cache: bool = True) -> RiskRespons
 
     current_price = float(df["Close"].iloc[-1])
 
-    # Fetch native currency from yfinance metadata
-    try:
-        ticker_info = yf.Ticker(ticker.upper()).fast_info
-        currency = getattr(ticker_info, 'currency', None) or "USD"
-    except Exception:
-        currency = "USD"
+    # Fetch native currency (instant for .NS / .BO, or fast_info for US tickers)
+    t_upper = ticker.upper()
+    if t_upper.endswith((".NS", ".BO")):
+        currency = "INR"
+    else:
+        try:
+            ticker_info = yf.Ticker(t_upper).fast_info
+            currency = getattr(ticker_info, 'currency', None) or "USD"
+        except Exception:
+            currency = "USD"
     
     try:
         X_features, df_aligned = extract_combined_features(df, window_size=20)
@@ -441,6 +440,20 @@ async def run_tfro_inference(ticker: str, use_cache: bool = True) -> RiskRespons
         set_cached(cache_key, result)
 
     return result
+
+
+async def run_tfro_inference(ticker: str, use_cache: bool = True) -> RiskResponse:
+    """
+    Non-blocking wrapper around _sync_run_tfro_inference.
+    Checks the daily memory cache immediately, or offloads computation to a worker thread.
+    """
+    cache_key = ticker.upper()
+    if use_cache:
+        cached = get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+    return await asyncio.to_thread(_sync_run_tfro_inference, ticker, use_cache)
 
 
 @app.get("/predict/{ticker}", response_model=RiskResponse)
@@ -553,9 +566,13 @@ async def screen_universe(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # Start fetching market regime concurrently with batch inference to eliminate sequential latency
+    bench = "^NSEI" if universe.upper() == "NIFTY50" else "^GSPC"
+    regime_task = asyncio.create_task(get_market_regime(bench))
+
     uncalibrated_results, failed = await run_batch_inference(target_tickers, max_concurrency)
 
-    # Fetch sector info concurrently for screened tickers
+    # Fetch sector info concurrently for screened tickers (instant from pre-seeded sector cache)
     sem_sec = asyncio.Semaphore(max_concurrency)
     async def fetch_sec(res: RiskResponse):
         async with sem_sec:
@@ -571,9 +588,8 @@ async def screen_universe(
     sector_summary = aggregate_by_sector(calibrated_dicts, weight_key=None)
     sector_avg_map = {s["sector"]: s["avg_risk_score"] for s in sector_summary}
 
-    # Fetch market regime info
-    bench = "^NSEI" if universe.upper() == "NIFTY50" else "^GSPC"
-    regime_data = await get_market_regime(bench)
+    # Await regime task which ran in parallel
+    regime_data = await regime_task
 
     explained_results: List[ExplainedRisk] = []
     base_map = {r.ticker.upper(): r for r in uncalibrated_results}
@@ -626,10 +642,11 @@ async def market_stress_index_endpoint(universe: str = "NIFTY50"):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    successful_results, failed = await run_batch_inference(target_tickers, max_concurrency=10)
-
     bench = "^NSEI" if universe.upper() == "NIFTY50" else "^GSPC"
-    regime_data = await get_market_regime(bench)
+    regime_task = asyncio.create_task(get_market_regime(bench))
+
+    successful_results, failed = await run_batch_inference(target_tickers, max_concurrency=10)
+    regime_data = await regime_task
 
     results_dicts = [r.model_dump() if hasattr(r, "model_dump") else r.dict() for r in successful_results]
     tmsi_dict = compute_tmsi(results_dicts, regime_data)

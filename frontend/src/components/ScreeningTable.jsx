@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import LoadingOverlay from './LoadingOverlay';
 
+// Utility to safely load JSON from localStorage with fallback
+function loadFromStorage(key, fallback) {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://topological-financial-risk-optimizer.onrender.com' : 'http://localhost:8000');
 
 function riskBadgeStyle(score) {
@@ -9,16 +19,58 @@ function riskBadgeStyle(score) {
   return { bg: 'var(--status-safe-bg)', text: 'var(--status-safe)', border: 'rgba(5,150,105,0.25)', label: 'Low' };
 }
 
-export default function ScreeningTable({ onSelectTicker, onScreenDataLoaded, currentUniverse, setCurrentUniverse }) {
-  const [universe, setUniverse] = useState(currentUniverse || 'NIFTY50');
-  const [customTickers, setCustomTickers] = useState('AAPL, NVDA, TSLA, MSFT, AMZN');
-  const [screenData, setScreenData] = useState(null);
+export default function ScreeningTable({ onSelectTicker, onScreenDataLoaded, currentUniverse, setCurrentUniverse, initialScreenData }) {
+  const [universe, setUniverse] = useState(() => currentUniverse || loadFromStorage('tfro_screenerUniverse', 'NIFTY50'));
+  const [customTickers, setCustomTickers] = useState(() => loadFromStorage('tfro_screener_custom_tickers', 'AAPL, NVDA, TSLA, MSFT, AMZN'));
+  const [screenData, setScreenData] = useState(() => initialScreenData || loadFromStorage('tfro_screenData', null));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
   // Sort state
-  const [sortField, setSortField] = useState('calibrated_risk_score');
-  const [sortAsc, setSortAsc] = useState(false);
+  const [sortField, setSortField] = useState(() => loadFromStorage('tfro_screener_sortField', 'calibrated_risk_score'));
+  const [sortAsc, setSortAsc] = useState(() => loadFromStorage('tfro_screener_sortAsc', false));
+
+  // Sync universe prop if changed from parent
+  useEffect(() => {
+    if (currentUniverse && currentUniverse !== universe) {
+      setUniverse(currentUniverse);
+    }
+  }, [currentUniverse]);
+
+  // Sync initialScreenData prop if updated from parent
+  useEffect(() => {
+    if (initialScreenData && initialScreenData !== screenData) {
+      setScreenData(initialScreenData);
+    }
+  }, [initialScreenData]);
+
+  // Persist selections
+  useEffect(() => {
+    localStorage.setItem('tfro_screenerUniverse', JSON.stringify(universe));
+  }, [universe]);
+
+  useEffect(() => {
+    localStorage.setItem('tfro_screener_custom_tickers', JSON.stringify(customTickers));
+  }, [customTickers]);
+
+  useEffect(() => {
+    if (screenData) {
+      localStorage.setItem('tfro_screenData', JSON.stringify(screenData));
+      if (screenData.universe) {
+        localStorage.setItem(`tfro_screenData_${screenData.universe}`, JSON.stringify(screenData));
+      }
+    } else {
+      localStorage.removeItem('tfro_screenData');
+    }
+  }, [screenData]);
+
+  useEffect(() => {
+    localStorage.setItem('tfro_screener_sortField', JSON.stringify(sortField));
+  }, [sortField]);
+
+  useEffect(() => {
+    localStorage.setItem('tfro_screener_sortAsc', JSON.stringify(sortAsc));
+  }, [sortAsc]);
 
   const fetchScreen = async (selectedUniverse, tickersInput) => {
     setIsLoading(true);
@@ -35,6 +87,8 @@ export default function ScreeningTable({ onSelectTicker, onScreenDataLoaded, cur
       }
       const json = await res.json();
       setScreenData(json);
+      localStorage.setItem('tfro_screenData', JSON.stringify(json));
+      localStorage.setItem(`tfro_screenData_${selectedUniverse}`, JSON.stringify(json));
       if (setCurrentUniverse) setCurrentUniverse(selectedUniverse);
       if (onScreenDataLoaded) onScreenDataLoaded(json);
     } catch (err) {
@@ -45,7 +99,16 @@ export default function ScreeningTable({ onSelectTicker, onScreenDataLoaded, cur
   };
 
   useEffect(() => {
-    fetchScreen(universe, customTickers);
+    // Only auto-fetch if we have no existing screen data for this universe
+    if (!screenData || screenData.universe !== universe.toUpperCase()) {
+      const cached = loadFromStorage(`tfro_screenData_${universe}`, null);
+      if (cached) {
+        setScreenData(cached);
+        if (onScreenDataLoaded) onScreenDataLoaded(cached);
+      } else {
+        fetchScreen(universe, customTickers);
+      }
+    }
   }, []);
 
   const handleSubmit = (e) => {
@@ -100,7 +163,17 @@ export default function ScreeningTable({ onSelectTicker, onScreenDataLoaded, cur
               {/* Universe Dropdown */}
               <select
                 value={universe}
-                onChange={(e) => setUniverse(e.target.value)}
+                onChange={(e) => {
+                  const newUni = e.target.value;
+                  setUniverse(newUni);
+                  if (setCurrentUniverse) setCurrentUniverse(newUni);
+                  localStorage.setItem('tfro_screenerUniverse', JSON.stringify(newUni));
+                  const cached = loadFromStorage(`tfro_screenData_${newUni}`, null);
+                  if (cached) {
+                    setScreenData(cached);
+                    if (onScreenDataLoaded) onScreenDataLoaded(cached);
+                  }
+                }}
                 style={{
                   padding: '10px 16px',
                   borderRadius: 10,
@@ -122,6 +195,23 @@ export default function ScreeningTable({ onSelectTicker, onScreenDataLoaded, cur
               <button type="submit" className="btn-primary" disabled={isLoading}>
                 {isLoading ? 'Scanning...' : 'Execute Screen'}
               </button>
+
+              {screenData && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScreenData(null);
+                    localStorage.removeItem('tfro_screenData');
+                    localStorage.removeItem(`tfro_screenData_${universe}`);
+                    if (onScreenDataLoaded) onScreenDataLoaded(null);
+                  }}
+                  className="btn-glass"
+                  style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer' }}
+                  title="Clear market screen results"
+                >
+                  Clear Screen
+                </button>
+              )}
             </div>
           </div>
 

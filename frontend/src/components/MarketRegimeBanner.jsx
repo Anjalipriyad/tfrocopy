@@ -1,19 +1,39 @@
 import { useState, useEffect } from 'react';
 
+function loadFromStorage(key, fallback) {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://topological-financial-risk-optimizer.onrender.com' : 'http://localhost:8000');
 
 export default function MarketRegimeBanner({ benchmark = '^GSPC' }) {
-  const [regimeData, setRegimeData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [regimeData, setRegimeData] = useState(() => loadFromStorage(`tfro_regime_${benchmark}`, null));
+  const [loading, setLoading] = useState(() => !loadFromStorage(`tfro_regime_${benchmark}`, null));
 
   useEffect(() => {
     let isMounted = true;
+    const cached = loadFromStorage(`tfro_regime_${benchmark}`, null);
+    if (cached) {
+      setRegimeData(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     async function fetchRegime() {
       try {
         const res = await fetch(`${API_BASE}/market/regime?benchmark=${encodeURIComponent(benchmark)}`);
         if (res.ok) {
           const data = await res.json();
-          if (isMounted) setRegimeData(data);
+          if (isMounted) {
+            setRegimeData(data);
+            localStorage.setItem(`tfro_regime_${benchmark}`, JSON.stringify(data));
+          }
         }
       } catch (err) {
         console.error('Failed to fetch market regime:', err);

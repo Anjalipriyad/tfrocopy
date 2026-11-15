@@ -64,15 +64,22 @@ export default function App() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(() => loadFromStorage('tfro_result', null));
   const [chartData, setChartData] = useState(() => loadFromStorage('tfro_chartData', []));
-  const [isRealData, setIsRealData] = useState(false);
+  const [isRealData, setIsRealData] = useState(() => loadFromStorage('tfro_isRealData', false));
   const [watchlist, setWatchlist] = useState(() => loadFromStorage('tfro_watchlist', []));
   const [predHistory, setPredHistory] = useState(() => loadFromStorage('tfro_history', []));
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // Persist result, chart data, and prediction history to localStorage
+  // Persist current page
+  useEffect(() => {
+    localStorage.setItem('tfro_page', JSON.stringify(page));
+  }, [page]);
+
+  // Persist result, chart data, isRealData, and prediction history to localStorage
   useEffect(() => {
     if (result) {
       localStorage.setItem('tfro_result', JSON.stringify(result));
+    } else {
+      localStorage.removeItem('tfro_result');
     }
   }, [result]);
 
@@ -81,18 +88,29 @@ export default function App() {
   }, [chartData]);
 
   useEffect(() => {
+    localStorage.setItem('tfro_isRealData', JSON.stringify(isRealData));
+  }, [isRealData]);
+
+  useEffect(() => {
     localStorage.setItem('tfro_history', JSON.stringify(predHistory));
   }, [predHistory]);
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
 
   // Screener state
-  const [screenerUniverse, setScreenerUniverse] = useState('NIFTY50');
+  const [screenerUniverse, setScreenerUniverse] = useState(() => loadFromStorage('tfro_screenerUniverse', 'NIFTY50'));
   const [screenData, setScreenData] = useState(() => loadFromStorage('tfro_screenData', null));
-  // Persist screener data
+
+  // Persist screener state
+  useEffect(() => {
+    localStorage.setItem('tfro_screenerUniverse', JSON.stringify(screenerUniverse));
+  }, [screenerUniverse]);
+
   useEffect(() => {
     if (screenData) {
       localStorage.setItem('tfro_screenData', JSON.stringify(screenData));
+    } else {
+      localStorage.removeItem('tfro_screenData');
     }
   }, [screenData]);
   // Scroll progress
@@ -267,18 +285,41 @@ export default function App() {
                           </span>
                         </div>
 
-                        <button onClick={addToWatchlist}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10,
-                            border: `1px solid ${isInWatchlist ? 'var(--gold-border)' : 'var(--border-default)'}`,
-                            background: isInWatchlist ? 'var(--gold-bg)' : 'var(--bg-glass)',
-                            color: isInWatchlist ? 'var(--gold)' : 'var(--text-secondary)',
-                            fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', cursor: 'pointer', transition: 'all 0.25s'
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <button onClick={addToWatchlist}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10,
+                              border: `1px solid ${isInWatchlist ? 'var(--gold-border)' : 'var(--border-default)'}`,
+                              background: isInWatchlist ? 'var(--gold-bg)' : 'var(--bg-glass)',
+                              color: isInWatchlist ? 'var(--gold)' : 'var(--text-secondary)',
+                              fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', cursor: 'pointer', transition: 'all 0.25s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold-border)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = isInWatchlist ? 'var(--gold-border)' : 'var(--border-default)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                            {isInWatchlist ? '✓ Watching' : '+ Watch'}
+                          </button>
+
+                          <button onClick={() => {
+                            setResult(null);
+                            setChartData([]);
+                            setIsRealData(false);
+                            localStorage.removeItem('tfro_result');
+                            localStorage.removeItem('tfro_chartData');
+                            localStorage.removeItem('tfro_isRealData');
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold-border)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = isInWatchlist ? 'var(--gold-border)' : 'var(--border-default)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                          {isInWatchlist ? '✓ Watching' : '+ Watch'}
-                        </button>
+                          style={{
+                            padding: '8px 14px', borderRadius: 10,
+                            border: '1px solid var(--border-default)',
+                            background: 'var(--bg-glass)',
+                            color: 'var(--text-muted)',
+                            fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--status-danger)'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.3)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}
+                          title="Clear current stock analysis">
+                            ✕ Clear
+                          </button>
+                        </div>
                       </div>
                     </ScrollReveal>
 
@@ -342,6 +383,7 @@ export default function App() {
                   onScreenDataLoaded={(data) => setScreenData(data)}
                   currentUniverse={screenerUniverse}
                   setCurrentUniverse={setScreenerUniverse}
+                  initialScreenData={screenData}
                 />
               </div>
             )}

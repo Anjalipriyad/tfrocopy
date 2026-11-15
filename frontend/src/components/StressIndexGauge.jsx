@@ -3,6 +3,15 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'rec
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://topological-financial-risk-optimizer.onrender.com' : 'http://localhost:8000');
 
+function loadFromStorage(key, fallback) {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function tmsiPalette(score) {
   if (score < 40) return { color: 'var(--status-safe)', bg: 'var(--status-safe-bg)', label: 'STABLE MARKET', glow: 'rgba(5,150,105,0.3)' };
   if (score < 70) return { color: 'var(--gold)', bg: 'var(--gold-bg)', label: 'ELEVATED STRESS', glow: 'var(--gold-glow)' };
@@ -10,19 +19,32 @@ function tmsiPalette(score) {
 }
 
 export default function StressIndexGauge({ universe = 'NIFTY50' }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [animatedScore, setAnimatedScore] = useState(0);
+  const [data, setData] = useState(() => loadFromStorage(`tfro_tmsi_${universe}`, null));
+  const [loading, setLoading] = useState(() => !loadFromStorage(`tfro_tmsi_${universe}`, null));
+  const [animatedScore, setAnimatedScore] = useState(() => {
+    const cached = loadFromStorage(`tfro_tmsi_${universe}`, null);
+    return cached?.current?.tmsi || 0;
+  });
 
   useEffect(() => {
     let isMounted = true;
-    async function fetchTMSI() {
+    const cached = loadFromStorage(`tfro_tmsi_${universe}`, null);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    async function fetchTMSI() {
       try {
         const res = await fetch(`${API_BASE}/market/stress-index?universe=${encodeURIComponent(universe)}`);
         if (res.ok) {
           const json = await res.json();
-          if (isMounted) setData(json);
+          if (isMounted) {
+            setData(json);
+            localStorage.setItem(`tfro_tmsi_${universe}`, JSON.stringify(json));
+          }
         }
       } catch (err) {
         console.error('Failed to fetch TMSI:', err);

@@ -22,8 +22,8 @@ export default function PortfolioBuilder({ onSelectTicker }) {
     { ticker: 'TSLA', weight: 30 },
   ];
   const [holdingsInput, setHoldingsInput] = useState(() => loadFromStorage('tfro_portfolio_holdings', defaultHoldings));
-  const [newTicker, setNewTicker] = useState('');
-  const [newWeight, setNewWeight] = useState(10);
+  const [newTicker, setNewTicker] = useState(() => loadFromStorage('tfro_portfolio_newTicker', ''));
+  const [newWeight, setNewWeight] = useState(() => loadFromStorage('tfro_portfolio_newWeight', 10));
   const [portfolioData, setPortfolioData] = useState(() => loadFromStorage('tfro_portfolio_data', null));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -31,10 +31,29 @@ export default function PortfolioBuilder({ onSelectTicker }) {
   // Compute weight sum
   const weightSum = holdingsInput.reduce((sum, h) => sum + (parseFloat(h.weight) || 0), 0);
   const isSumValid = Math.abs(weightSum - 100) <= 1.0;
+
   // Persist holdings to localStorage
   useEffect(() => {
     localStorage.setItem('tfro_portfolio_holdings', JSON.stringify(holdingsInput));
   }, [holdingsInput]);
+
+  // Persist draft new holding inputs
+  useEffect(() => {
+    localStorage.setItem('tfro_portfolio_newTicker', JSON.stringify(newTicker));
+  }, [newTicker]);
+
+  useEffect(() => {
+    localStorage.setItem('tfro_portfolio_newWeight', JSON.stringify(newWeight));
+  }, [newWeight]);
+
+  // Persist portfolio analysis results to localStorage
+  useEffect(() => {
+    if (portfolioData) {
+      localStorage.setItem('tfro_portfolio_data', JSON.stringify(portfolioData));
+    } else {
+      localStorage.removeItem('tfro_portfolio_data');
+    }
+  }, [portfolioData]);
 
   const handleAddRow = () => {
     if (!newTicker.trim()) return;
@@ -105,27 +124,42 @@ export default function PortfolioBuilder({ onSelectTicker }) {
             </p>
           </div>
 
-          {/* Running weight sum badge */}
-          <div
-            style={{
-              padding: '6px 16px',
-              borderRadius: 20,
-              background: isSumValid ? 'var(--status-safe-bg)' : 'var(--gold-bg)',
-              border: `1px solid ${isSumValid ? 'rgba(5,150,105,0.3)' : 'var(--gold-border)'}`,
-              color: isSumValid ? 'var(--status-safe)' : 'var(--gold)',
-              fontSize: 12,
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <span>Allocation Sum: {weightSum.toFixed(1)}%</span>
-            {!isSumValid && (
-              <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.9 }}>
-                (Will auto-normalize)
-              </span>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                setHoldingsInput(defaultHoldings);
+                setPortfolioData(null);
+                localStorage.removeItem('tfro_portfolio_data');
+              }}
+              className="btn-glass"
+              style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}
+              title="Reset holdings back to default"
+            >
+              ↺ Reset Defaults
+            </button>
+
+            {/* Running weight sum badge */}
+            <div
+              style={{
+                padding: '6px 16px',
+                borderRadius: 20,
+                background: isSumValid ? 'var(--status-safe-bg)' : 'var(--gold-bg)',
+                border: `1px solid ${isSumValid ? 'rgba(5,150,105,0.3)' : 'var(--gold-border)'}`,
+                color: isSumValid ? 'var(--status-safe)' : 'var(--gold)',
+                fontSize: 12,
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span>Allocation Sum: {weightSum.toFixed(1)}%</span>
+              {!isSumValid && (
+                <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.9 }}>
+                  (Will auto-normalize)
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -227,14 +261,29 @@ export default function PortfolioBuilder({ onSelectTicker }) {
           </table>
         </div>
 
-        <button
-          onClick={handleAnalyze}
-          className="btn-primary"
-          style={{ width: '100%', padding: '14px' }}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Analyzing Portfolio...' : 'Analyze Portfolio Stress'}
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            onClick={handleAnalyze}
+            className="btn-primary"
+            style={{ flex: 1, padding: '14px' }}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Analyzing Portfolio...' : 'Analyze Portfolio Stress'}
+          </button>
+          {portfolioData && (
+            <button
+              onClick={() => {
+                setPortfolioData(null);
+                localStorage.removeItem('tfro_portfolio_data');
+              }}
+              className="btn-glass"
+              style={{ padding: '14px 20px', fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer' }}
+              title="Clear analysis results"
+            >
+              Clear Results
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
