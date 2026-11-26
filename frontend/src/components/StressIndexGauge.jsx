@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
-const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://topological-financial-risk-optimizer.onrender.com' : 'http://localhost:8000');
+const API_BASE = (import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://tfrocopy.onrender.com' : 'http://localhost:8000')).replace(/\/+$/, '');
 
 function loadFromStorage(key, fallback) {
   try {

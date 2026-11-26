@@ -11,7 +11,7 @@ function loadFromStorage(key, fallback) {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://topological-financial-risk-optimizer.onrender.com' : 'http://localhost:8000');
+const API_BASE = (import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://tfrocopy.onrender.com' : 'http://localhost:8000')).replace(/\/+$/, '');
 
 function riskBadgeStyle(score) {
   if (score > 70) return { bg: 'var(--status-danger-bg)', text: 'var(--status-danger)', border: 'rgba(220,38,38,0.25)', label: 'High' };
