@@ -12,10 +12,11 @@ venv/
 build/
 dist/
 
-# Node
+# Node & Deployments
 node_modules/
 frontend/dist/
 frontend/node_modules/
+.vercel/
 
 # OS
 .DS_Store

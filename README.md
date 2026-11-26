@@ -72,6 +72,19 @@ cd frontend
 npm run build   # Outputs to ./dist
 ```
 
+### Vercel Deployment (Frontend)
+
+The repository is pre-configured for seamless deployment on [Vercel](https://vercel.com):
+
+1. **Import Git Repository**: In your Vercel Dashboard, click **Add New** > **Project** and import this repository.
+2. **Project Settings**:
+   - **Framework Preset**: Vite (detected automatically).
+   - **Root Directory**: Leave as `./` (or select `frontend` if deploying frontend exclusively).
+   - **Build & Output Settings**: Handled automatically via `vercel.json` (`outputDirectory`: `frontend/dist`).
+3. **Environment Variables** (Optional):
+   - `VITE_API_BASE`: Set to your backend API URL (e.g. `https://topological-financial-risk-optimizer.onrender.com`).
+4. **Deploy**: Click **Deploy**. Vercel will build and host your dashboard with automatic SPA route rewrites.
+
 ## Usage
 
 1. **Start the backend** and ensure the API is reachable.

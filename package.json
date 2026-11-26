@@ -1,0 +1,11 @@
+{
+  "name": "topological-financial-risk-optimizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Topological Financial Risk Optimizer",
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev",
+    "preview": "npm --prefix frontend run preview"
+  }
+}
